@@ -1,0 +1,53 @@
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+
+PROCESS_WIDTH = 320
+PROCESS_HEIGHT = 240
+
+DRAWING_COLOR = (0, 255, 0)
+DRAWING_THICKNESS = 5
+BG_COLOR = (0, 0, 0)
+
+HAND_DETECTION_CONFIDENCE = 0.7
+MIN_HAND_DETECTION_CONFIDENCE = 0.5
+MIN_TRACKING_CONFIDENCE = 0.5
+
+PINCH_THRESHOLD = 0.04
+
+LANDMARK = {
+    "WRIST": 0,
+    "THUMB_CMC": 1,
+    "THUMB_MCP": 2,
+    "THUMB_IP": 3,
+    "THUMB_TIP": 4,
+    "INDEX_MCP": 5,
+    "INDEX_PIP": 6,
+    "INDEX_DIP": 7,
+    "INDEX_TIP": 8,
+    "MIDDLE_MCP": 9,
+    "MIDDLE_PIP": 10,
+    "MIDDLE_DIP": 11,
+    "MIDDLE_TIP": 12,
+    "RING_MCP": 13,
+    "RING_PIP": 14,
+    "RING_DIP": 15,
+    "RING_TIP": 16,
+    "PINKY_MCP": 17,
+    "PINKY_PIP": 18,
+    "PINKY_DIP": 19,
+    "PINKY_TIP": 20,
+}
+
+FINGER_TIPS = [4, 8, 12, 16, 20]
+FINGER_PIPS = [3, 6, 10, 14, 18]
+
+COLOR_PALETTE = [
+    (0, 255, 0),
+    (0, 0, 255),
+    (255, 0, 0),
+    (255, 255, 0),
+    (255, 0, 255),
+    (0, 255, 255),
+    (128, 0, 128),
+    (255, 128, 0),
+]
