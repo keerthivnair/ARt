@@ -9,30 +9,46 @@ class GestureRecognizer:
         self.current_gesture = "none"
         self._pinching = False
         self._open_palm = False
+        self.scaling_mode = False
 
     def analyze(self, landmarks):
         if not landmarks:
             self.current_gesture = "none"
             self._pinching = False
             self._open_palm = False
+            self.scaling_mode = False
             return self.current_gesture
 
         fingers_up = self._count_fingers_up(landmarks)
         self._open_palm = fingers_up >= 4
         self._pinching = self._is_pinching(landmarks)
+        dist = self.get_pinch_distance(landmarks)
+        
+        is_only_index = (fingers_up == 1 and self._is_index_pointing(landmarks))
+        is_thumb_and_index = (fingers_up == 2 and self._is_thumb_and_index_up(landmarks))
 
-        if self._pinching:
+        if self._pinching or (is_thumb_and_index and dist < 0.2):
+            self.scaling_mode = True
+            
+        if fingers_up == 0 or fingers_up >= 4:
+            self.scaling_mode = False
+            
+        if is_only_index and not self._pinching:
+             self.scaling_mode = False
+
+        if self.scaling_mode and dist < 0.2:
             self.current_gesture = "pinch"
         elif fingers_up == 0:
             self.current_gesture = "fist"
-        elif fingers_up == 1 and self._is_index_pointing(landmarks):
+        elif is_only_index:
+            self.current_gesture = "point"
+        elif is_thumb_and_index and dist >= 0.2:
             self.current_gesture = "point"
         elif fingers_up >= 4:
             self.current_gesture = "open_palm"
-        elif fingers_up == 2:
-            self.current_gesture = "victory"
         else:
             self.current_gesture = "open_palm" if fingers_up >= 2 else "fist"
+            self.scaling_mode = False
 
         return self.current_gesture
 
@@ -61,6 +77,16 @@ class GestureRecognizer:
         index_tip = landmarks["INDEX_TIP"]
         middle_tip = landmarks["MIDDLE_TIP"]
         return index_tip[1] < middle_tip[1]
+
+    def _is_thumb_and_index_up(self, landmarks):
+        wrist = landmarks["WRIST"]
+        thumb_up = self._is_finger_up(landmarks, "THUMB_TIP", "THUMB_MCP", wrist)
+        index_up = self._is_finger_up(landmarks, "INDEX_TIP", "INDEX_PIP", wrist)
+        middle_up = self._is_finger_up(landmarks, "MIDDLE_TIP", "MIDDLE_PIP", wrist)
+        ring_up = self._is_finger_up(landmarks, "RING_TIP", "RING_PIP", wrist)
+        pinky_up = self._is_finger_up(landmarks, "PINKY_TIP", "PINKY_PIP", wrist)
+        
+        return thumb_up and index_up and not middle_up and not ring_up and not pinky_up
 
     def get_pinch_distance(self, landmarks):
         if len(landmarks) == 0:

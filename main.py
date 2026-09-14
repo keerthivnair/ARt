@@ -27,12 +27,15 @@ def main():
     process_frame = np.zeros((PROCESS_HEIGHT, PROCESS_WIDTH, 3), dtype=np.uint8)
 
     print("Hand Drawing System started. Press 'q' to quit.")
-    print("Pinch thumb and index finger to draw.")
+    print("Point index finger to draw.")
+    print("Pinch thumb and index finger to scale.")
     print("Press 'c' to clear canvas. Press 'n' for next color.")
 
     fps_time = time.time()
     fps = 0
     frame_count = 0
+    
+    prev_pinch_dist = None
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -56,14 +59,25 @@ def main():
             cx = int(index_tip[0] * SCREEN_WIDTH)
             cy = int(index_tip[1] * SCREEN_HEIGHT)
 
-            if gesture_recognizer.is_pinching():
-                canvas.draw_line((cx, cy))
+            if gesture == "point":
+                canvas.add_point_to_active_stroke((cx, cy))
+                prev_pinch_dist = None
+                cv2.circle(frame, (cx, cy), 8, DRAWING_COLOR, -1)
+            elif gesture == "pinch":
+                canvas.finalize_active_stroke()
+                dist = gesture_recognizer.get_pinch_distance(lm)
+                if prev_pinch_dist is not None:
+                    delta = dist - prev_pinch_dist
+                    canvas.transform.scale += delta * 5.0
+                    canvas.transform.scale = max(0.1, min(canvas.transform.scale, 10.0))
+                prev_pinch_dist = dist
             else:
-                canvas.stop_drawing()
+                canvas.finalize_active_stroke()
+                prev_pinch_dist = None
 
-            cv2.circle(frame, (cx, cy), 8, DRAWING_COLOR, -1)
         else:
-            canvas.stop_drawing()
+            canvas.finalize_active_stroke()
+            prev_pinch_dist = None
 
         fps_now = time.time()
         elapsed = fps_now - fps_time
@@ -93,8 +107,21 @@ def main():
             2,
         )
 
-        composite = canvas.get_composite()
-        combined = cv2.addWeighted(frame, 0.4, composite, 0.6, 0)
+        scale_text = f"Scale: {canvas.transform.scale:.2f}x"
+        cv2.putText(
+            frame,
+            scale_text,
+            (10, 90),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 200, 0),
+            2,
+        )
+        foreground = canvas.re_render_frame()
+        mask = canvas.get_foreground_mask()
+
+        frame_bg = cv2.bitwise_and(frame, frame, mask=cv2.bitwise_not(mask))
+        combined = cv2.add(frame_bg, foreground)
 
         color_msg = "Press 'n'=next color | 'c'=clear | 'q'=quit"
         cv2.putText(
