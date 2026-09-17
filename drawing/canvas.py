@@ -40,6 +40,28 @@ class DrawingCanvas:
         
         self.active_stroke.add_point((orig_x, orig_y))
 
+    def remove_points_from_strokes(self, point, radius=15):
+        # FIX: erase by proximity instead of exact-pixel match. `radius` is
+        # in screen-space pixels (matches the circle drawn in main.py), so
+        # it also needs to be converted into original/unscaled space, same
+        # as the point itself, otherwise erasing feels wrong when zoomed
+        # in/out via the pinch gesture.
+        inv_scale = 1.0 / self.transform.scale
+        cx, cy = self.center
+        x, y = point
+
+        orig_x = (x - cx) * inv_scale + cx
+        orig_y = (y - cy) * inv_scale + cy
+        orig_radius = radius * inv_scale
+
+        for stroke in self.strokes:
+            stroke.remove_points_near(orig_x, orig_y, orig_radius)
+
+        # Drop strokes that have been fully erased so they don't pile up.
+        self.strokes = [s for s in self.strokes if not s.is_empty()]
+
+        self.re_render_frame()
+
     def finalize_active_stroke(self):
         if self.active_stroke is not None and not self.active_stroke.is_empty():
             self.strokes.append(self.active_stroke)
