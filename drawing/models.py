@@ -23,5 +23,15 @@ class Stroke:
     def add_point(self, point):
         self.points.append(point)
 
+    def remove_point(self, point):
+        self.points.remove(point)
+
+    def remove_points_near(self, x, y, radius):
+        radius_sq = radius * radius
+        self.points = [
+            p for p in self.points
+            if (p[0] - x) ** 2 + (p[1] - y) ** 2 > radius_sq
+        ]
+
     def is_empty(self):
         return len(self.points) == 0

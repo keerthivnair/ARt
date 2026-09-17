@@ -54,7 +54,7 @@ def main():
         if landmarks:
             lm = landmarks[0]
             gesture = gesture_recognizer.analyze(lm)
-
+            
             index_tip = lm["INDEX_TIP"]
             cx = int(index_tip[0] * SCREEN_WIDTH)
             cy = int(index_tip[1] * SCREEN_HEIGHT)
@@ -63,6 +63,16 @@ def main():
                 canvas.add_point_to_active_stroke((cx, cy))
                 prev_pinch_dist = None
                 cv2.circle(frame, (cx, cy), 8, DRAWING_COLOR, -1)
+            elif gesture == 'erase':
+                # FIX: without this, a stroke you just drew stays in
+                # canvas.active_stroke (not canvas.strokes) until some other
+                # gesture finalizes it, so remove_points_from_strokes()
+                # (which only loops over canvas.strokes) can't touch it yet.
+                canvas.finalize_active_stroke()
+                canvas.remove_points_from_strokes((cx, cy), radius=15)
+                prev_pinch_dist = None
+                cv2.circle(frame, (cx, cy), 15, DRAWING_COLOR, -1)
+
             elif gesture == "pinch":
                 canvas.finalize_active_stroke()
                 dist = gesture_recognizer.get_pinch_distance(lm)
