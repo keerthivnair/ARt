@@ -123,6 +123,25 @@ class DrawingCanvas:
             if stroke.selected:
                 stroke.points = [(p[0] + cdx, p[1] + cdy) for p in stroke.points]
 
+    def snap_selected_strokes_to(self, target_screen_x, target_screen_y):
+        if not self.has_selection():
+            return
+        selected_screen_pts = [
+            self.transform.apply(p, self.center)
+            for s in self.strokes
+            if s.selected
+            for p in s.points
+        ]
+        if not selected_screen_pts:
+            return
+
+        current_cx = sum(pt[0] for pt in selected_screen_pts) / len(selected_screen_pts)
+        current_cy = sum(pt[1] for pt in selected_screen_pts) / len(selected_screen_pts)
+
+        dx = target_screen_x - current_cx
+        dy = target_screen_y - current_cy
+        self.move_selected_strokes(dx, dy)
+
     def scale_selected_strokes(self, scale_factor):
         if not self.has_selection() or scale_factor == 1.0:
             return

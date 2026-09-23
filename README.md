@@ -42,6 +42,7 @@ python main.py
 | Gesture | Hand | Action / Function |
 |---------|------|-------------------|
 | **Point** (Index Finger) | Left | Traces a **Selection Circle/Lasso** around strokes on the canvas. Releasing the point closes the loop and selects enclosed drawings. |
+| **Index + Middle Up** (2 Fingers) | Left | **Snaps** the selected figure center directly to your left hand's location. |
 | **Pinch** (Thumb + Index) | Left | **Moves / Pans** the selected drawing around. If no selection is active, pans the entire canvas. |
 | **Fist** (Closed Hand) | Left | **Deselects** the current selection, returning all strokes to unselected state. |
 

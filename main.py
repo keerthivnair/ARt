@@ -124,6 +124,29 @@ def main():
                             2,
                         )
 
+                    elif gesture == "erase":
+                        canvas.finalize_active_stroke()
+                        middle_tip = lm["MIDDLE_TIP"]
+                        cx_mid = int(middle_tip[0] * SCREEN_WIDTH)
+                        cy_mid = int(middle_tip[1] * SCREEN_HEIGHT)
+                        hand_center = ((cx + cx_mid) // 2, (cy + cy_mid) // 2)
+
+                        if canvas.has_selection():
+                            canvas.snap_selected_strokes_to(hand_center[0], hand_center[1])
+
+                        # Draw visual indicator for Left Hand 2-Finger Snap
+                        cv2.circle(frame, hand_center, 14, (0, 255, 255), 2)
+                        cv2.circle(frame, hand_center, 4, (0, 255, 255), -1)
+                        cv2.putText(
+                            frame,
+                            "SNAP to Left Hand",
+                            (hand_center[0] + 15, hand_center[1] - 15),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.6,
+                            (0, 255, 255),
+                            2,
+                        )
+
                     elif gesture == "fist":
                         canvas.deselect_all()
 
@@ -240,7 +263,7 @@ def main():
         frame_bg = cv2.bitwise_and(frame, frame, mask=cv2.bitwise_not(mask))
         combined = cv2.add(frame_bg, foreground)
 
-        color_msg = "Left Point = Circle Select | Left Pinch = Move | Left Fist = Deselect | Right Pinch = Scale | 'c' = Clear | 'q' = Quit"
+        color_msg = "Left Point = Circle Select | Left Index+Middle = Snap | Left Pinch = Move | Left Fist = Deselect | 'c' = Clear | 'q' = Quit"
         cv2.putText(
             combined,
             color_msg,

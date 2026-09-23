@@ -110,6 +110,18 @@ class GestureRecognizer:
         index_up = self._is_finger_up(landmarks, "INDEX_TIP", "INDEX_PIP", wrist)
         return thumb_up and index_up
 
+    def _is_c_shape(self, landmarks):
+        dist = self.get_pinch_distance(landmarks)
+        # Moderate gap between thumb tip and index tip (open C shape arc)
+        if not (0.12 <= dist <= 0.40):
+            return False
+
+        # Ring and pinky fingers should not both be extended straight up
+        wrist = landmarks["WRIST"]
+        ring_up = self._is_finger_up(landmarks, "RING_TIP", "RING_PIP", wrist)
+        pinky_up = self._is_finger_up(landmarks, "PINKY_TIP", "PINKY_PIP", wrist)
+        return not (ring_up and pinky_up)
+
     def get_pinch_distance(self, landmarks):
         if len(landmarks) == 0:
             return 0.0
