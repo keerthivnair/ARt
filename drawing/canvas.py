@@ -78,6 +78,96 @@ class DrawingCanvas:
     def set_thickness(self, thickness):
         self.thickness = max(1, min(thickness, 20))
 
+    def has_selection(self):
+        return any(stroke.selected for stroke in self.strokes)
+
+    def deselect_all(self):
+        for stroke in self.strokes:
+            stroke.selected = False
+
+    def select_strokes_in_polygon(self, polygon_screen_pts):
+        self.deselect_all()
+        if len(polygon_screen_pts) < 3:
+            return 0
+
+        inv_scale = 1.0 / self.transform.scale
+        cx, cy = self.center
+        poly_canvas = []
+        for (sx, sy) in polygon_screen_pts:
+            ox = (sx - cx - self.transform.tx) * inv_scale + cx
+            oy = (sy - cy - self.transform.ty) * inv_scale + cy
+            poly_canvas.append((ox, oy))
+
+        poly_arr = np.array(poly_canvas, dtype=np.float32)
+
+        count = 0
+        for stroke in self.strokes:
+            is_inside = False
+            for (px, py) in stroke.points:
+                dist = cv2.pointPolygonTest(poly_arr, (float(px), float(py)), measureDist=False)
+                if dist >= 0:
+                    is_inside = True
+                    break
+            if is_inside:
+                stroke.selected = True
+                count += 1
+        return count
+
+    def move_selected_strokes(self, dx_screen, dy_screen):
+        if not self.has_selection():
+            return
+        inv_scale = 1.0 / self.transform.scale
+        cdx = dx_screen * inv_scale
+        cdy = dy_screen * inv_scale
+        for stroke in self.strokes:
+            if stroke.selected:
+                stroke.points = [(p[0] + cdx, p[1] + cdy) for p in stroke.points]
+
+    def scale_selected_strokes(self, scale_factor):
+        if not self.has_selection() or scale_factor == 1.0:
+            return
+        selected_points = [p for s in self.strokes if s.selected for p in s.points]
+        if not selected_points:
+            return
+        centroid_x = sum(p[0] for p in selected_points) / len(selected_points)
+        centroid_y = sum(p[1] for p in selected_points) / len(selected_points)
+
+        for stroke in self.strokes:
+            if stroke.selected:
+                stroke.points = [
+                    (
+                        centroid_x + (p[0] - centroid_x) * scale_factor,
+                        centroid_y + (p[1] - centroid_y) * scale_factor,
+                    )
+                    for p in stroke.points
+                ]
+
+    def draw_selection_overlay(self, frame):
+        selected_screen_pts = [
+            self.transform.apply(p, self.center)
+            for s in self.strokes
+            if s.selected
+            for p in s.points
+        ]
+        if not selected_screen_pts:
+            return
+
+        min_x = min(pt[0] for pt in selected_screen_pts) - 10
+        max_x = max(pt[0] for pt in selected_screen_pts) + 10
+        min_y = min(pt[1] for pt in selected_screen_pts) - 10
+        max_y = max(pt[1] for pt in selected_screen_pts) + 10
+
+        cv2.rectangle(frame, (min_x, min_y), (max_x, max_y), (255, 255, 0), 2)
+        cv2.putText(
+            frame,
+            "SELECTED",
+            (min_x, max(min_y - 6, 15)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 255, 0),
+            1,
+        )
+
     def re_render_frame(self):
         self.canvas = np.zeros((self.height, self.width, 3), dtype=np.uint8)
 
@@ -86,15 +176,23 @@ class DrawingCanvas:
 
         if self.active_stroke is not None:
             self._draw_stroke(self.active_stroke)
-            
+
         return self.canvas
 
     def _draw_stroke(self, stroke):
         if len(stroke.points) < 2:
             if len(stroke.points) == 1:
                 pt = self.transform.apply(stroke.points[0], self.center)
-                cv2.circle(self.canvas, pt, stroke.thickness // 2, stroke.color, -1)
+                color = (255, 255, 0) if stroke.selected else stroke.color
+                cv2.circle(self.canvas, pt, stroke.thickness // 2, color, -1)
             return
+
+        # If selected, draw a cyan glow behind the stroke
+        if stroke.selected:
+            for i in range(1, len(stroke.points)):
+                pt1 = self.transform.apply(stroke.points[i - 1], self.center)
+                pt2 = self.transform.apply(stroke.points[i], self.center)
+                cv2.line(self.canvas, pt1, pt2, (255, 255, 0), stroke.thickness + 4)
 
         for i in range(1, len(stroke.points)):
             pt1 = self.transform.apply(stroke.points[i - 1], self.center)
@@ -102,7 +200,6 @@ class DrawingCanvas:
             cv2.line(self.canvas, pt1, pt2, stroke.color, stroke.thickness)
 
     def get_foreground_mask(self):
-
         gray = cv2.cvtColor(self.canvas, cv2.COLOR_BGR2GRAY)
         _, mask = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
         return mask

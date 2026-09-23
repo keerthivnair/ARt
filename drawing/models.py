@@ -19,6 +19,7 @@ class Stroke:
         self.points = []
         self.color = color
         self.thickness = thickness
+        self.selected = False
 
     def add_point(self, point):
         self.points.append(point)
