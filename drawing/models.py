@@ -8,8 +8,8 @@ class Transform:
         x, y = point
         cx, cy = center
 
-        scaled_x = int((x - cx) * self.scale + cx)
-        scaled_y = int((y - cy) * self.scale + cy)
+        scaled_x = int((x - cx) * self.scale + cx + self.tx)
+        scaled_y = int((y - cy) * self.scale + cy + self.ty)
         
         return (scaled_x, scaled_y)
 

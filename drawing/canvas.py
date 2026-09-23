@@ -5,54 +5,15 @@ from config import (
     SCREEN_HEIGHT,
     DRAWING_COLOR,
     DRAWING_THICKNESS,
-<<<<<<< HEAD
-    BG_COLOR,
-    COLOR_PALETTE,
-)
-=======
     COLOR_PALETTE,
 )
 from drawing.models import Stroke, Transform
->>>>>>> 459880ae6897751b266242f48c896d8bba518f9b
 
 
 class DrawingCanvas:
     def __init__(self, width=SCREEN_WIDTH, height=SCREEN_HEIGHT):
         self.width = width
         self.height = height
-<<<<<<< HEAD
-        self.canvas = np.zeros((height, width, 3), dtype=np.uint8)
-        self.drawing = False
-        self.color = DRAWING_COLOR
-        self.thickness = DRAWING_THICKNESS
-        self.prev_point = None
-        self.color_index = 0
-
-    def start_drawing(self, point):
-        self.drawing = True
-        self.prev_point = point
-
-    def stop_drawing(self):
-        self.drawing = False
-        self.prev_point = None
-
-    def draw_line(self, point):
-        if not self.drawing:
-            self.drawing = True
-            self.prev_point = point
-            return
-        if self.prev_point is None:
-            self.prev_point = point
-            return
-        cv2.line(
-            self.canvas,
-            self.prev_point,
-            point,
-            self.color,
-            self.thickness,
-        )
-        self.prev_point = point
-=======
         
         self.canvas = np.zeros((height, width, 3), dtype=np.uint8)
         
@@ -74,8 +35,8 @@ class DrawingCanvas:
         cx, cy = self.center
         x, y = point
         
-        orig_x = int((x - cx) * inv_scale + cx)
-        orig_y = int((y - cy) * inv_scale + cy)
+        orig_x = int((x - cx - self.transform.tx) * inv_scale + cx)
+        orig_y = int((y - cy - self.transform.ty) * inv_scale + cy)
         
         self.active_stroke.add_point((orig_x, orig_y))
 
@@ -89,8 +50,8 @@ class DrawingCanvas:
         cx, cy = self.center
         x, y = point
 
-        orig_x = (x - cx) * inv_scale + cx
-        orig_y = (y - cy) * inv_scale + cy
+        orig_x = (x - cx - self.transform.tx) * inv_scale + cx
+        orig_y = (y - cy - self.transform.ty) * inv_scale + cy
         orig_radius = radius * inv_scale
 
         for stroke in self.strokes:
@@ -105,7 +66,6 @@ class DrawingCanvas:
         if self.active_stroke is not None and not self.active_stroke.is_empty():
             self.strokes.append(self.active_stroke)
         self.active_stroke = None
->>>>>>> 459880ae6897751b266242f48c896d8bba518f9b
 
     def set_color(self, color):
         self.color = color
@@ -118,16 +78,6 @@ class DrawingCanvas:
     def set_thickness(self, thickness):
         self.thickness = max(1, min(thickness, 20))
 
-<<<<<<< HEAD
-    def get_composite(self):
-        return cv2.addWeighted(self.canvas, 1.0, np.zeros_like(self.canvas), 0.0, 0)
-
-    def clear(self):
-        self.canvas = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-
-    def get_undo_canvas(self):
-        return self.canvas.copy()
-=======
     def re_render_frame(self):
         self.canvas = np.zeros((self.height, self.width, 3), dtype=np.uint8)
 
@@ -162,4 +112,3 @@ class DrawingCanvas:
         self.active_stroke = None
         self.transform = Transform()
         self.canvas = np.zeros((self.height, self.width, 3), dtype=np.uint8)
->>>>>>> 459880ae6897751b266242f48c896d8bba518f9b

@@ -5,11 +5,11 @@ from config import (
 
 
 class GestureRecognizer:
-    def __init__(self):
+    def __init__(self, switch_threshold=2):
         self.current_gesture = "none"
         self.previous_gesture = 'none'
         self.return_gesture = 'none'
-        self.gesture_switch_threshold = 5
+        self.gesture_switch_threshold = switch_threshold
         self.gesture_persist = 0
         self._pinch_active = False          # NEW: sticky state
 
@@ -23,7 +23,6 @@ class GestureRecognizer:
         fingers_up = self._count_fingers_up(landmarks)
         self._open_palm = fingers_up > 4
         dist = self.get_pinch_distance(landmarks)
-        print(fingers_up, dist)
 
         is_only_index = (fingers_up == 1 and self._is_index_pointing(landmarks))
         is_only_thumb_and_index = (fingers_up == 2 and self._is_thumb_and_index_up(landmarks))
