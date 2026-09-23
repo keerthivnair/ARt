@@ -27,12 +27,22 @@ def main():
     process_frame = np.zeros((PROCESS_HEIGHT, PROCESS_WIDTH, 3), dtype=np.uint8)
 
     print("Hand Drawing System started. Press 'q' to quit.")
+<<<<<<< HEAD
     print("Pinch thumb and index finger to draw.")
+=======
+    print("Point index finger to draw.")
+    print("Pinch thumb and index finger to scale.")
+>>>>>>> 459880ae6897751b266242f48c896d8bba518f9b
     print("Press 'c' to clear canvas. Press 'n' for next color.")
 
     fps_time = time.time()
     fps = 0
     frame_count = 0
+<<<<<<< HEAD
+=======
+    
+    prev_pinch_dist = None
+>>>>>>> 459880ae6897751b266242f48c896d8bba518f9b
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -51,11 +61,16 @@ def main():
         if landmarks:
             lm = landmarks[0]
             gesture = gesture_recognizer.analyze(lm)
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> 459880ae6897751b266242f48c896d8bba518f9b
             index_tip = lm["INDEX_TIP"]
             cx = int(index_tip[0] * SCREEN_WIDTH)
             cy = int(index_tip[1] * SCREEN_HEIGHT)
 
+<<<<<<< HEAD
             if gesture_recognizer.is_pinching():
                 canvas.draw_line((cx, cy))
             else:
@@ -64,6 +79,37 @@ def main():
             cv2.circle(frame, (cx, cy), 8, DRAWING_COLOR, -1)
         else:
             canvas.stop_drawing()
+=======
+            if gesture == "point":
+                canvas.add_point_to_active_stroke((cx, cy))
+                prev_pinch_dist = None
+                cv2.circle(frame, (cx, cy), 8, DRAWING_COLOR, -1)
+            elif gesture == 'erase':
+                # FIX: without this, a stroke you just drew stays in
+                # canvas.active_stroke (not canvas.strokes) until some other
+                # gesture finalizes it, so remove_points_from_strokes()
+                # (which only loops over canvas.strokes) can't touch it yet.
+                canvas.finalize_active_stroke()
+                canvas.remove_points_from_strokes((cx, cy), radius=15)
+                prev_pinch_dist = None
+                cv2.circle(frame, (cx, cy), 15, DRAWING_COLOR, -1)
+
+            elif gesture == "pinch":
+                canvas.finalize_active_stroke()
+                dist = gesture_recognizer.get_pinch_distance(lm)
+                if prev_pinch_dist is not None:
+                    delta = dist - prev_pinch_dist
+                    canvas.transform.scale += delta * 5.0
+                    canvas.transform.scale = max(0.1, min(canvas.transform.scale, 10.0))
+                prev_pinch_dist = dist
+            else:
+                canvas.finalize_active_stroke()
+                prev_pinch_dist = None
+
+        else:
+            canvas.finalize_active_stroke()
+            prev_pinch_dist = None
+>>>>>>> 459880ae6897751b266242f48c896d8bba518f9b
 
         fps_now = time.time()
         elapsed = fps_now - fps_time
@@ -93,8 +139,26 @@ def main():
             2,
         )
 
+<<<<<<< HEAD
         composite = canvas.get_composite()
         combined = cv2.addWeighted(frame, 0.4, composite, 0.6, 0)
+=======
+        scale_text = f"Scale: {canvas.transform.scale:.2f}x"
+        cv2.putText(
+            frame,
+            scale_text,
+            (10, 90),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 200, 0),
+            2,
+        )
+        foreground = canvas.re_render_frame()
+        mask = canvas.get_foreground_mask()
+
+        frame_bg = cv2.bitwise_and(frame, frame, mask=cv2.bitwise_not(mask))
+        combined = cv2.add(frame_bg, foreground)
+>>>>>>> 459880ae6897751b266242f48c896d8bba518f9b
 
         color_msg = "Press 'n'=next color | 'c'=clear | 'q'=quit"
         cv2.putText(
@@ -125,4 +189,8 @@ def main():
 
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     main()
+=======
+    main()
+>>>>>>> 459880ae6897751b266242f48c896d8bba518f9b
