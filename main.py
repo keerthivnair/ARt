@@ -1,6 +1,10 @@
 import cv2
 import numpy as np
 import time
+import os
+import tkinter as tk
+from tkinter import filedialog
+from datetime import datetime
 from config import (
     SCREEN_WIDTH,
     SCREEN_HEIGHT,
@@ -8,6 +12,7 @@ from config import (
     PROCESS_HEIGHT,
     DRAWING_COLOR,
     COLOR_PALETTE,
+    SAVE_DIR,
 )
 from handtracking.tracker import HandTracker
 from handtracking.gestures import GestureRecognizer
@@ -34,6 +39,11 @@ def main():
     print("LEFT HAND: Point to draw a SELECTION CIRCLE around a drawing.")
     print("LEFT HAND: Pinch to MOVE selected drawing (or whole canvas).")
     print("Press 'd' or show Open Palm to deselect. Press 'c' to clear canvas.")
+    print("Press 's' to save, 'l' to load, 'm' to merge.")
+
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    notification_text = ""
+    notification_time = 0
 
     fps_time = time.time()
     fps = 0
@@ -274,6 +284,17 @@ def main():
             1,
         )
 
+        if time.time() - notification_time < 3:
+            cv2.putText(
+                combined,
+                notification_text,
+                (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1.0,
+                (255, 255, 255),
+                2,
+            )
+
         cv2.imshow("ARt - Hand Drawing", combined)
 
         key = cv2.waitKey(1) & 0xFF
@@ -288,6 +309,36 @@ def main():
         elif key == ord("n"):
             color = canvas.next_color()
             print(f"Color changed to index {canvas.color_index}: {color}")
+        elif key == ord("s"):
+            root = tk.Tk()
+            root.withdraw()
+            default_name = f"ARt_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            path = filedialog.asksaveasfilename(
+                initialdir=os.path.abspath(SAVE_DIR),
+                initialfile=default_name,
+                defaultextension=".png",
+                filetypes=[("PNG Image", "*.png")]
+            )
+            root.destroy()
+            if path:
+                canvas.save_to_file(path)
+                notification_text = f"Saved to {os.path.basename(path)}"
+                notification_time = time.time()
+        elif key == ord("l") or key == ord("m"):
+            root = tk.Tk()
+            root.withdraw()
+            path = filedialog.askopenfilename(
+                initialdir=os.path.abspath(SAVE_DIR),
+                defaultextension=".json",
+                filetypes=[("JSON File", "*.json")]
+            )
+            root.destroy()
+            if path:
+                success = canvas.load_from_file(path, merge=(key == ord("m")))
+                if success:
+                    action = "Merged" if key == ord("m") else "Loaded"
+                    notification_text = f"{action} from {os.path.basename(path)}"
+                    notification_time = time.time()
 
     cap.release()
     tracker.release()

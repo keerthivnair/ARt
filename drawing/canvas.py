@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import json
+import os
 from config import (
     SCREEN_WIDTH,
     SCREEN_HEIGHT,
@@ -228,3 +230,40 @@ class DrawingCanvas:
         self.active_stroke = None
         self.transform = Transform()
         self.canvas = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+
+    def save_to_file(self, filepath):
+        if not filepath.endswith(".png"):
+            filepath += ".png"
+        
+        cv2.imwrite(filepath, self.re_render_frame())
+        
+        
+        json_filepath = filepath.replace(".png", ".json")
+        data = {
+            "transform": self.transform.to_dict(),
+            "strokes": [s.to_dict() for s in self.strokes]
+        }
+        with open(json_filepath, 'w') as f:
+            json.dump(data, f, indent=4)
+        print(f"Artwork saved to {filepath} and {json_filepath}")
+
+    def load_from_file(self, filepath, merge=False):
+        if not os.path.exists(filepath):
+            print(f"File not found: {filepath}")
+            return False
+            
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+            
+        if not merge:
+            self.clear()
+            self.transform = Transform.from_dict(data.get("transform", {}))
+            
+        for stroke_data in data.get("strokes", []):
+            stroke = Stroke.from_dict(stroke_data)
+            self.strokes.append(stroke)
+            
+        self.re_render_frame()
+        print(f"Artwork loaded from {filepath} (merge={merge})")
+        return True
+

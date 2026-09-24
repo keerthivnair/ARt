@@ -51,3 +51,5 @@ COLOR_PALETTE = [
     (128, 0, 128),
     (255, 128, 0),
 ]
+
+SAVE_DIR = "saved_artworks"

@@ -61,7 +61,20 @@ python main.py
 | `n` | Cycle to the next color in the palette |
 | `c` | Clear the entire canvas and reset view transform |
 | `d` | Deselect current selection |
+| `s` | **Save** the current artwork |
+| `l` | **Load** an artwork (Replaces the current canvas) |
+| `m` | **Merge** an artwork (Adds it to the current canvas) |
 | `q` | Quit the application |
+
+## Saving and Loading Artwork
+
+ARt supports a persistent saving mechanism that safely preserves your drawings, zoom levels, and pans so you can retrieve or edit them later.
+
+* **Saving (`s`)**: When you press `s`, a file dialog pops up. The application creates **two** files in the `saved_artworks/` directory:
+  1. A `.png` image of your rendered drawing (ideal for sharing or viewing outside the app).
+  2. A `.json` data file which meticulously stores all stroke representations, colors, thicknesses, and the exact spatial panning/zoom state.
+* **Loading (`l`)**: When you press `l` and select a `.json` file, the current canvas is completely cleared, and the saved artwork and pan/zoom transform are fully restored exactly as you left them.
+* **Merging (`m`)**: When you press `m`, the application reads the `.json` file and **adds** its strokes to your *current* canvas, without replacing your current pan/zoom state. This allows you to combine multiple saved artworks into one scene seamlessly!
 
 ## Architecture
 
