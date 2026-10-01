@@ -8,6 +8,44 @@ DRAWING_COLOR = (0, 255, 0)
 DRAWING_THICKNESS = 5
 BG_COLOR = (0, 0, 0)
 
+# --- 3D scene -------------------------------------------------------------
+# World axes: +X right, +Y down, +Z into the scene (away from the camera).
+# The view plane sits at the camera, the draw plane is a plane parallel to it
+# placed DRAW_PLANE_DISTANCE units in front of the camera, so every vertex the
+# user draws lands in 3D, not on the screen.
+DRAW_PLANE_DISTANCE = 600.0
+MIN_DRAW_DISTANCE = 120.0
+MAX_DRAW_DISTANCE = 2500.0
+
+CAMERA_FOV = 60.0
+MIN_CAMERA_DISTANCE = 150.0
+MAX_CAMERA_DISTANCE = 2500.0
+
+# Points closer to the camera than this are treated as behind it and skipped.
+MIN_PROJECTION_DEPTH = 1.0
+
+# Perceived thickness is rescaled by draw_distance / depth and clamped, which
+# gives far away strokes a thinner, darker look.
+MIN_THICKNESS_SCALE = 0.4
+MAX_THICKNESS_SCALE = 2.5
+MIN_SHADE = 0.4
+
+# --- snapping -------------------------------------------------------------
+# A newly drawn vertex snaps to the nearest vertex of an already drawn stroke
+# when it lands within SNAP_RADIUS world units of it.
+SNAP_ENABLED = True
+SNAP_RADIUS = 45.0
+SNAP_GRID = 45.0
+
+# --- gesture tuning -------------------------------------------------------
+ORBIT_SENSITIVITY = 0.005
+ROTATE_SENSITIVITY = 1.0
+DEPTH_SENSITIVITY = 1.0
+DOLLY_SENSITIVITY = 1.0
+
+# Draw the draw plane guide grid onto the render.
+DRAW_PLANE_GUIDE = True
+
 HAND_DETECTION_CONFIDENCE = 0.7
 MIN_HAND_DETECTION_CONFIDENCE = 0.5
 MIN_TRACKING_CONFIDENCE = 0.5

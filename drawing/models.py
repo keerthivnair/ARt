@@ -1,70 +1,77 @@
-class Transform:
-    def __init__(self):
-        self.scale = 1.0
-        self.tx = 0.0
-        self.ty = 0.0
+import numpy as np
 
-    def apply(self, point, center=(0, 0)):
-        x, y = point
-        cx, cy = center
-
-        scaled_x = int((x - cx) * self.scale + cx + self.tx)
-        scaled_y = int((y - cy) * self.scale + cy + self.ty)
-        
-        return (scaled_x, scaled_y)
-
-    def to_dict(self):
-        return {
-            "scale": self.scale,
-            "tx": self.tx,
-            "ty": self.ty
-        }
-
-    @classmethod
-    def from_dict(cls, data):
-        t = cls()
-        t.scale = data.get("scale", 1.0)
-        t.tx = data.get("tx", 0.0)
-        t.ty = data.get("ty", 0.0)
-        return t
+from drawing.geometry import mat4_identity, mat4_invert, transform_point
 
 
-class Stroke:
-    def __init__(self, color, thickness):
-        self.points = []
-        self.color = color
-        self.thickness = thickness
+class Stroke3D:
+    """A polyline of 3D vertices living on the draw plane.
+
+    Vertices are kept in the stroke's own local space and placed in the world by
+    ``transform`` (a 4x4 matrix). Selection edits such as rotate, translate and
+    scale only rewrite that matrix, so the original drawn geometry is never
+    destroyed and a transform can be undone by composition.
+    """
+
+    def __init__(self, color, thickness, points=None, transform=None):
+        self.points = list(points) if points else []
+        self.color = tuple(color)
+        self.thickness = int(thickness)
         self.selected = False
+        self.transform = mat4_identity() if transform is None else np.array(transform, dtype=float)
 
     def add_point(self, point):
-        self.points.append(point)
-
-    def remove_point(self, point):
-        self.points.remove(point)
-
-    def remove_points_near(self, x, y, radius):
-        radius_sq = radius * radius
-        self.points = [
-            p for p in self.points
-            if (p[0] - x) ** 2 + (p[1] - y) ** 2 > radius_sq
-        ]
+        self.points.append((float(point[0]), float(point[1]), float(point[2])))
 
     def is_empty(self):
         return len(self.points) == 0
 
+    def world_point(self, index):
+        return transform_point(self.transform, self.points[index])
+
+    def world_points(self):
+        return [transform_point(self.transform, p) for p in self.points]
+
+    def local_points_from_world(self, world_points):
+        inverse = mat4_invert(self.transform)
+        return [transform_point(inverse, p) for p in world_points]
+
+    def centroid(self):
+        if not self.points:
+            return np.array([0.0, 0.0, 0.0])
+        stacked = np.array(self.world_points(), dtype=float)
+        return stacked.mean(axis=0)
+
+    def remove_world_points_near(self, target, radius):
+        radius_squared = radius * radius
+        keep = []
+        for point in self.points:
+            delta = transform_point(self.transform, point) - np.asarray(target, dtype=float)
+            if float(np.dot(delta, delta)) > radius_squared:
+                keep.append(point)
+        self.points = keep
+
     def to_dict(self):
         return {
-            "points": self.points,
-            "color": self.color,
+            "points": [list(p) for p in self.points],
+            "color": list(self.color),
             "thickness": self.thickness,
-            "selected": self.selected
+            "selected": self.selected,
+            "transform": self.transform.tolist(),
         }
 
     @classmethod
     def from_dict(cls, data):
-        color = tuple(data.get("color", (0, 255, 0)))
-        thickness = data.get("thickness", 5)
-        stroke = cls(color, thickness)
-        stroke.points = [tuple(p) for p in data.get("points", [])]
-        stroke.selected = data.get("selected", False)
+        thickness = int(data.get("thickness", 5))
+        stroke = cls(tuple(data.get("color", (0, 255, 0))), thickness)
+        for point in data.get("points", []):
+            # Older 2D saves only had (x, y); they are loaded onto z = 0.
+            if len(point) >= 3:
+                stroke.add_point((point[0], point[1], point[2]))
+            elif len(point) == 2:
+                stroke.add_point((point[0], point[1], 0.0))
+        stroke.selected = bool(data.get("selected", False))
+
+        transform = data.get("transform")
+        if transform is not None and np.array(transform).shape == (4, 4):
+            stroke.transform = np.array(transform, dtype=float)
         return stroke

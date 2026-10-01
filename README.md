@@ -1,17 +1,19 @@
-# ARt - Gesture Controlled AR Drawing System
+# ARt - Gesture Controlled 3D Drawing System
 
-A real-time hand-tracking and 2D landmark detection system built with OpenCV and MediaPipe for virtual drawing, shape selection, and partial canvas transformations using intuitive hand gestures.
+A real-time hand-tracking drawing system built with OpenCV and MediaPipe. Drawing happens in **3D**: every stroke is a chain of 3D vertices, the user draws onto a **draw plane** placed a set distance in front of the view plane, and the screen shows a **perspective projection** of that 3D scene onto the 2D view plane. Orbiting, rotating, translating in depth, and vertex snapping are all available by gesture.
 
 ## Features
 
-- **Multi-Hand Real-Time Tracking**: Tracks up to 2 hands simultaneously with mirror-aware handedness detection.
-- **Left-Hand Circle Selection**: Draw a loop/circle with your left index finger around any part of the canvas to select specific strokes.
-- **Partial Transformations**: Move or scale only selected strokes independently from the rest of the canvas.
-- **Left-Hand Pinch-to-Move**: Pinch with your left hand to translate (pan) selected drawings or the entire canvas.
-- **Right-Hand Pinch-to-Scale**: Pinch with your right hand to zoom/scale selected drawings or the entire canvas.
-- **Point-to-Draw & Erase**: Draw using your right index finger; erase using index + middle finger.
-- **Fist-to-Deselect**: Form a fist with your left hand to instantly deselect current selection.
-- **Color Cycling**: Cycle through an 8-color palette.
+- **True 3D geometry**: strokes store `(x, y, z)` vertices placed in world space; the camera projects them with a perspective divide (`x_screen = cx + f·X/Z`).
+- **Draw plane at a distance from the view plane**: a plane parallel to the view plane, `DRAW_PLANE_DISTANCE` units in front of the camera. Drawn vertices land on this plane, not on the screen. Its distance is adjustable live.
+- **Draw plane guide**: an on-screen grid with X/Y axes and a `+Z` stub showing the plane floating in front of the view plane.
+- **Depth cueing**: stroke thickness and brightness scale with distance from the camera, so depth reads naturally.
+- **Rotate selection *or* the view plane**: one gesture rotates the current selection about the view axis; with no selection it rotates the whole view plane.
+- **3D translation**: move a selection within the draw plane, and push/pull it along the view (Z) axis; orbit the camera with another gesture.
+- **Vertex snapping**: a newly drawn vertex snaps to the nearest already-drawn vertex (voxel) within a configurable radius, using a spatial hash.
+- **Multi-Hand Real-Time Tracking**: tracks up to 2 hands simultaneously with mirror-aware handedness detection.
+- **Lasso selection**: draw a loop with your left index finger to select the enclosed strokes.
+- **Color cycling** across an 8-color palette.
 
 ## Requirements
 
@@ -35,74 +37,99 @@ The hand landmarker model (`models/hand_landmarker.task`) is required and includ
 python main.py
 ```
 
-## Gesture Controls & Functions
+## Coordinate System
 
-### Left Hand Gestures (Selection & Movement)
+- World axes: **+X** right, **+Y** down, **+Z** into the scene (away from the camera).
+- The **view plane** is at the camera; the **draw plane** is parallel to it, `DRAW_PLANE_DISTANCE` in front.
+- The camera orbits a `target` point at `distance`, controlled by yaw / pitch / roll.
 
-| Gesture | Hand | Action / Function |
-|---------|------|-------------------|
-| **Point** (Index Finger) | Left | Traces a **Selection Circle/Lasso** around strokes on the canvas. Releasing the point closes the loop and selects enclosed drawings. |
-| **Index + Middle Up** (2 Fingers) | Left | **Snaps** the selected figure center directly to your left hand's location. |
-| **Pinch** (Thumb + Index) | Left | **Moves / Pans** the selected drawing around. If no selection is active, pans the entire canvas. |
-| **Fist** (Closed Hand) | Left | **Deselects** the current selection, returning all strokes to unselected state. |
+## Gesture Controls
 
-### Right Hand Gestures (Drawing, Erasing & Scaling)
+### Right Hand (drawing & depth)
 
-| Gesture | Hand | Action / Function |
-|---------|------|-------------------|
-| **Point** (Index Finger) | Right | **Draws** on the canvas using the currently active color. |
-| **Erase** (Index + Middle) | Right | **Erases** strokes near the finger tip. |
-| **Pinch** (Thumb + Index) | Right | **Scales / Zooms** the selected drawing. If no selection is active, zooms the entire canvas. |
+| Gesture | Action |
+|---------|--------|
+| **Point** (index) | **Draw** a 3D stroke on the draw plane, snapping to nearby voxels. |
+| **Index + Middle** | **Erase** 3D vertices near the finger. |
+| **Pinch** (thumb + index) | **Scale** the selection in 3D; with no selection, **dolly** the camera in/out. |
+| **Index + Middle + Ring** | **Translate in Z**: push/pull the selection along the view axis; with no selection, **move the draw plane** closer/farther. |
+| **Index + Pinky** | **Rotate** the selection (or the view plane if nothing is selected). |
+| **Open Palm** | Toggle vertex snapping. |
+
+### Left Hand (selection & view)
+
+| Gesture | Action |
+|---------|--------|
+| **Point** (index) | Trace a **lasso** around strokes to select them. |
+| **Pinch** (thumb + index) | **Move** the selection within the draw plane; with no selection, **pan** the view. |
+| **Index + Middle** | **Snap** the selection's centroid onto the hand's draw-plane point. |
+| **Index + Middle + Ring** | **Orbit** the view (yaw/pitch) around the scene. |
+| **Index + Pinky** | **Rotate** the selection (or roll the view plane). |
+| **Fist** | **Deselect** everything. |
+| **Open Palm** | Reset the view to the default. |
 
 ### Keyboard Shortcuts
 
 | Key | Function |
 |-----|----------|
-| `n` | Cycle to the next color in the palette |
-| `c` | Clear the entire canvas and reset view transform |
+| `n` | Cycle to the next color |
+| `c` | Clear the scene and reset the view |
 | `d` | Deselect current selection |
+| `v` | Toggle vertex snapping |
+| `[` / `]` | Decrease / increase snap radius |
+| `-` / `=` | Move the draw plane closer / farther |
+| `r` | Reset the view |
+| `g` | Toggle the draw plane guide |
 | `s` | **Save** the current artwork |
-| `l` | **Load** an artwork (Replaces the current canvas) |
-| `m` | **Merge** an artwork (Adds it to the current canvas) |
-| `q` | Quit the application |
+| `l` | **Load** an artwork (replaces the scene) |
+| `m` | **Merge** an artwork (adds to the scene) |
+| `q` | Quit |
 
-## Saving and Loading Artwork
+## Saving and Loading
 
-ARt supports a persistent saving mechanism that safely preserves your drawings, zoom levels, and pans so you can retrieve or edit them later.
+`s` writes two files into `saved_artworks/`:
+1. A `.png` of the rendered projection (shareable image).
+2. A `.json` storing all 3D stroke vertices, per-stroke transforms, colors, thicknesses, and the full camera state (target, distance, draw distance, yaw, pitch, roll, focal).
 
-* **Saving (`s`)**: When you press `s`, a file dialog pops up. The application creates **two** files in the `saved_artworks/` directory:
-  1. A `.png` image of your rendered drawing (ideal for sharing or viewing outside the app).
-  2. A `.json` data file which meticulously stores all stroke representations, colors, thicknesses, and the exact spatial panning/zoom state.
-* **Loading (`l`)**: When you press `l` and select a `.json` file, the current canvas is completely cleared, and the saved artwork and pan/zoom transform are fully restored exactly as you left them.
-* **Merging (`m`)**: When you press `m`, the application reads the `.json` file and **adds** its strokes to your *current* canvas, without replacing your current pan/zoom state. This allows you to combine multiple saved artworks into one scene seamlessly!
+`l` restores the scene and camera exactly. `m` adds the saved strokes to the current scene. Legacy 2D saves are still loadable (their `(x, y)` points are padded to 3D at `z = 0`).
 
 ## Architecture
 
 ```
 ARt/
-├── config.py                # Configuration constants (resolution, colors, thresholds, landmarks)
-├── main.py                  # Entry point tying together camera, tracker, gestures, canvas & UI
+├── config.py                # Resolution, 3D/camera/draw-plane, snapping, gesture tuning
+├── main.py                  # Entry point: camera → tracker → gestures → 3D canvas → HUD
 ├── handtracking/
-│   ├── __init__.py
-│   ├── tracker.py           # Multi-hand detection via MediaPipe, handedness & native OpenCV skeleton rendering
-│   └── gestures.py          # Per-hand gesture recognition (pinch, fist, point, erase, open palm)
+│   ├── tracker.py           # Multi-hand MediaPipe detection + native OpenCV skeleton
+│   └── gestures.py          # Gesture classification + hand roll angle
 ├── drawing/
-│   ├── __init__.py
-│   ├── canvas.py            # Canvas state, polygon selection testing, stroke rendering & transformation
-│   └── models.py            # Transform model (scale, tx, ty) & Stroke data model
+│   ├── geometry.py          # 4x4 matrix math + perspective orbit Camera
+│   ├── models.py            # Stroke3D: 3D vertices + per-stroke 4x4 transform
+│   ├── scene.py             # Strokes, voxel spatial index, snapping, 3D selection ops
+│   └── canvas.py            # Projection renderer, draw plane guide, overlays, save/load
 ├── models/
-│   └── hand_landmarker.task # Pre-trained MediaPipe hand landmarker model
+│   └── hand_landmarker.task # MediaPipe hand landmarker
+├── verify_3d.py             # Headless 3D math & scene test suite
+├── verify_pipeline.py       # Headless end-to-end gesture pipeline test suite
 ├── README.md
 └── requirements.txt
 ```
 
-## Landmark Reference
+## How 3D Editing Works
 
-The system tracks 21 2D/3D hand landmarks per hand (MediaPipe Hand Landmarks):
+Each `Stroke3D` keeps its vertices in a local space and carries a 4×4 `transform` matrix. Selection edits never rewrite the drawn geometry; they only compose new matrices:
 
-- Landmark `0`: Wrist
-- Landmarks `1-4`: Thumb (CMC, MCP, IP, Tip)
-- Landmarks `5-8`: Index finger (MCP, PIP, DIP, Tip)
-- Landmarks `9-12`: Middle finger (MCP, PIP, DIP, Tip)
-- Landmarks `13-16`: Ring finger (MCP, PIP, DIP, Tip)
-- Landmarks `17-20`: Pinky finger (MCP, PIP, DIP, Tip)
+- **Translate** → `T(delta) · M`
+- **Rotate** → `T(pivot) · R(axis, angle) · T(-pivot) · M`
+- **Scale** → `T(pivot) · S(s) · T(-pivot) · M`
+
+Rendering projects every world vertex through the camera and draws the polyline; segments behind the camera are clipped. Because selection edits are pure transforms, they compose cleanly and round-trip exactly through save/load.
+
+## Verification
+
+Two headless suites exercise the system without a camera or MediaPipe:
+
+```bash
+python verify_3d.py        # 78 checks: projection, draw plane, snapping, 3D selection math, save/load, gestures
+python verify_pipeline.py  # 33 checks: end-to-end gesture → canvas pipeline
+```
