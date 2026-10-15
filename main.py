@@ -155,16 +155,21 @@ def main():
                     if prev_left_orbit_pos is not None:
                         dx = cx - prev_left_orbit_pos[0]
                         dy = cy - prev_left_orbit_pos[1]
-                        canvas.orbit_view(-dx * ORBIT_SENSITIVITY, -dy * ORBIT_SENSITIVITY)
+                        canvas.tumble_selection_or_scene(
+                            -dx * ORBIT_SENSITIVITY,
+                            -dy * ORBIT_SENSITIVITY,
+                        )
                     prev_left_orbit_pos = (cx, cy)
-                    cv2.circle(frame, (cx, cy), 20, (0, 200, 255), 2)
+                    target = "selection" if canvas.has_selection() else "scene"
+                    color = (255, 255, 0) if canvas.has_selection() else (0, 200, 255)
+                    cv2.circle(frame, (cx, cy), 20, color, 2)
                     cv2.putText(
                         frame,
-                        "ORBIT view",
+                        f"TUMBLE {target}",
                         (cx + 25, cy),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.6,
-                        (0, 200, 255),
+                        color,
                         2,
                     )
 
@@ -243,19 +248,15 @@ def main():
                 elif gesture == "three_fingers":
                     canvas.finalize_active_stroke()
                     if prev_right_depth_y is not None:
-                        dy = prev_right_depth_y - cy
-                        if canvas.has_selection():
-                            canvas.translate_selected_depth(dy * DEPTH_SENSITIVITY)
-                            label, color = "Translate Z (selection)", (0, 200, 255)
-                        else:
-                            canvas.adjust_draw_distance(dy * DEPTH_SENSITIVITY)
-                            label, color = "Draw plane distance", (0, 200, 255)
-                    else:
-                        label, color = "Translate Z (selection)", (0, 200, 255)
+                        dy = cy - prev_right_depth_y
+                        canvas.tumble_selection_or_scene(0.0, -dy * ORBIT_SENSITIVITY)
                     prev_right_depth_y = cy
+                    target = "selection" if canvas.has_selection() else "scene"
+                    color = (255, 255, 0) if canvas.has_selection() else (0, 200, 255)
+                    cv2.circle(frame, (cx, cy), 20, color, 2)
                     cv2.putText(
                         frame,
-                        label,
+                        f"TILT {target} (into camera)",
                         (cx + 25, cy),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.6,
@@ -286,8 +287,8 @@ def main():
                 elif gesture == "open_palm":
                     canvas.finalize_active_stroke()
                     state = canvas.toggle_snap()
-                    notification_text = f"Vertex snapping {'ON' if state else 'OFF'}"
-                    notification_time = time.time()
+                    # notification_text = f"Vertex snapping {'ON' if state else 'OFF'}"
+                    # notification_time = time.time()
 
         if not left_pointing and len(left_lasso_points) > 0:
             if len(left_lasso_points) >= 3:

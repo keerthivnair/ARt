@@ -116,6 +116,30 @@ class DrawingCanvas:
         amount = self.pixels_to_world(pixel_delta)
         self.scene.translate_selected_depth(amount, self.camera.forward())
 
+    def tumble_selection_or_scene(self, d_horizontal, d_vertical):
+        """Rotate out of the draw plane, about the screen's up and right axes.
+
+        Acts on the selection if there is one, otherwise on every stroke about
+        their shared centroid. Horizontal motion turns about the view's up
+        axis, vertical motion about the view's right axis.
+        """
+        if abs(d_horizontal) < 1e-9 and abs(d_vertical) < 1e-9:
+            return
+        right = self.camera.right()
+        up = self.camera.up()
+
+        if self.has_selection():
+            self.scene.rotate_selected(up, d_horizontal)
+            self.scene.rotate_selected(right, d_vertical)
+            return
+
+        points = [p for s in self.scene.strokes for p in s.world_points()]
+        if not points:
+            return
+        pivot = np.array(points, dtype=float).mean(axis=0)
+        self.scene.rotate_all(up, d_horizontal, pivot)
+        self.scene.rotate_all(right, d_vertical, pivot)    
+
     def rotate_selection_or_view(self, angle):
         """Rotate the selection if there is one, otherwise the whole view plane."""
         if self.has_selection():
