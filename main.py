@@ -80,6 +80,7 @@ def main():
         left_pinching = False
         right_pinching = False
         drawing_active = False
+        erasing_active = False
 
         for lm in landmarks:
             hand_side = lm.get("handedness", "Right")
@@ -193,11 +194,11 @@ def main():
                     notification_text = "Selection cleared"
                     notification_time = time.time()
 
-                elif gesture == "open_palm":
-                    canvas.finalize_active_stroke()
-                    canvas.reset_view()
-                    notification_text = "View reset"
-                    notification_time = time.time()
+                # elif gesture == "open_palm":
+                #     canvas.finalize_active_stroke()
+                #     canvas.reset_view()
+                #     notification_text = "View reset"
+                #     notification_time = time.time()
 
             else:
                 if gesture == "point":
@@ -207,6 +208,7 @@ def main():
                     cv2.circle(frame, (cx, cy), 8, canvas.color, -1)
 
                 elif gesture == "two_fingers":
+                    erasing_active = True
                     canvas.finalize_active_stroke()
                     canvas.remove_points_from_strokes((cx, cy), radius=15)
                     cv2.circle(frame, (cx, cy), 15, (0, 0, 255), -1)
@@ -318,6 +320,8 @@ def main():
             prev_right_roll = None
         if not drawing_active:
             canvas.finalize_active_stroke()
+        if not erasing_active:
+            canvas.end_erase()
 
         canvas.draw_selection_overlay(frame)
 

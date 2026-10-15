@@ -1,6 +1,14 @@
 import numpy as np
-
+import math
 from drawing.geometry import mat4_identity, mat4_invert, transform_point
+
+def _point_segment_dist_sq_2d(px, py, a, b):
+    ax, ay, bx, by = a[0], a[1], b[0], b[1]
+    dx, dy = bx - ax, by - ay
+    len_sq = dx * dx + dy * dy
+    t = 0.0 if len_sq == 0.0 else max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / len_sq))
+    ex, ey = ax + dx * t - px, ay + dy * t - py
+    return ex * ex + ey * ey
 
 
 class Stroke3D:
@@ -41,14 +49,80 @@ class Stroke3D:
         stacked = np.array(self.world_points(), dtype=float)
         return stacked.mean(axis=0)
 
-    def remove_world_points_near(self, target, radius):
+
+    def erase_in_screen_circle(self, project, center, radius):
+        """Cut this stroke with a circular eraser defined in screen pixels.
+
+        Returns None if the eraser did not touch the stroke. Otherwise returns a
+        list of local-space point lists (each with >= 2 points) that survive.
+        An empty list means the whole stroke was erased.
+        """
+        if not self.points:
+            return None
+
+        cx, cy = float(center[0]), float(center[1])
+        r2 = radius * radius
+        step = max(radius / 3.0, 2.0)  # max pixel spacing of vertices near the eraser
+        reach_sq = (radius + step) ** 2
+
+        local = [np.asarray(p, dtype=float) for p in self.points]
+        projected = [project(transform_point(self.transform, p)) for p in local]
+
+        # Densify only the segments that pass near the eraser, so the cut is
+        # accurate even when the original samples are far apart.
+        dense = []
+        for i, (lp, sp) in enumerate(zip(local, projected)):
+            dense.append((lp, sp))
+            if i + 1 == len(local):
+                break
+            nxt, nsp = local[i + 1], projected[i + 1]
+            if sp is None or nsp is None:
+                continue
+            if _point_segment_dist_sq_2d(cx, cy, sp, nsp) > reach_sq:
+                continue
+            length = math.hypot(nsp[0] - sp[0], nsp[1] - sp[1])
+            pieces = int(math.ceil(length / step))
+            for k in range(1, pieces):
+                mid = lp + (nxt - lp) * (k / pieces)
+                dense.append((mid, project(transform_point(self.transform, mid))))
+
+        runs, current, touched = [], [], False
+        for lp, sp in dense:
+            inside = sp is not None and (sp[0] - cx) ** 2 + (sp[1] - cy) ** 2 <= r2
+            if inside:
+                touched = True
+                if len(current) >= 2:
+                    runs.append(current)
+                current = []
+            else:
+                current.append((float(lp[0]), float(lp[1]), float(lp[2])))
+        if len(current) >= 2:
+            runs.append(current)
+
+        return runs if touched else None
+
+
+
+    def all_points_within(self, a, ab, ab_len_sq, radius):
+        """Return True if every world point of this stroke is within ``radius``
+        of the segment ``a->b`` (used to decide whether to delete a stroke
+        entirely rather than just trim it)."""
+        wp = self.world_points()
+        if not wp:
+            return True
         radius_squared = radius * radius
-        keep = []
-        for point in self.points:
-            delta = transform_point(self.transform, point) - np.asarray(target, dtype=float)
-            if float(np.dot(delta, delta)) > radius_squared:
-                keep.append(point)
-        self.points = keep
+        for p in wp:
+            pa = np.array(p, dtype=float) - a
+            t = float(np.dot(pa, ab) / ab_len_sq)
+            if t < 0.0:
+                closest = a
+            elif t > 1.0:
+                closest = a + ab
+            else:
+                closest = a + ab * t
+            if float(np.dot(np.array(p, dtype=float) - closest, np.array(p, dtype=float) - closest)) > radius_squared:
+                return False
+        return True
 
     def to_dict(self):
         return {

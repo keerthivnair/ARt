@@ -195,13 +195,25 @@ class Scene:
             stroke.transform = mat4_multiply(mat4_translation(delta), stroke.transform)
         self._invalidate_index()
 
-    # -- erasing ----------------------------------------------------------
-    def erase_near(self, world_point, radius):
-        target = np.asarray(world_point, dtype=float)
+        # -- erasing ----------------------------------------------------------
+    def erase_at_screen(self, project, center, radius):
+        """Erase with a screen-space circle. Strokes are cut, never merely thinned."""
+        result = []
+        changed = False
         for stroke in self.strokes:
-            stroke.remove_world_points_near(target, radius)
-        self.strokes = [stroke for stroke in self.strokes if not stroke.is_empty()]
-        self._invalidate_index()
+            pieces = stroke.erase_in_screen_circle(project, center, radius)
+            if pieces is None:
+                result.append(stroke)
+                continue
+            changed = True
+            for points in pieces:
+                piece = Stroke3D(stroke.color, stroke.thickness, points, stroke.transform)
+                piece.selected = stroke.selected
+                result.append(piece)
+        if changed:
+            self.strokes = result
+            self._invalidate_index()
+        return changed
 
     def clear(self):
         self.strokes = []

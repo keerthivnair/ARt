@@ -1,6 +1,6 @@
 import json
 import os
-
+import math
 import cv2
 import numpy as np
 
@@ -43,6 +43,7 @@ class DrawingCanvas:
         self.last_snap_target = None
 
         self.show_draw_plane = DRAW_PLANE_GUIDE
+        self._last_erase_point = None
 
     # -- projection helpers ----------------------------------------------
     def project(self, point):
@@ -66,11 +67,22 @@ class DrawingCanvas:
         self.scene.finalize_active_stroke()
 
     def remove_points_from_strokes(self, screen_point, radius=15):
-        world_point = self.draw_plane_point(screen_point[0], screen_point[1])
-        world_radius = self.pixels_to_world(radius)
-        self.scene.erase_near(world_point, world_radius)
+        x, y = float(screen_point[0]), float(screen_point[1])
+        if self._last_erase_point is None:
+            samples = [(x, y)]
+        else:
+            lx, ly = self._last_erase_point
+            n = min(40, max(1, int(math.ceil(math.hypot(x - lx, y - ly) / max(radius * 0.5, 1.0)))))
+            samples = [(lx + (x - lx) * k / n, ly + (y - ly) * k / n) for k in range(1, n + 1)]
+        self._last_erase_point = (x, y)
+
+        for sx, sy in samples:
+            self.scene.erase_at_screen(self.project, (sx, sy), radius)
         self.re_render_frame()
 
+    def end_erase(self):
+        """Call when the erase gesture ends so the next one doesn't sweep from the old position."""
+        self._last_erase_point = None
     # -- selection --------------------------------------------------------
     def has_selection(self):
         return self.scene.has_selection()
@@ -359,6 +371,7 @@ class DrawingCanvas:
         self.reset_view()
         self.canvas[:] = 0
         self.last_snap_target = None
+        self._last_erase_point = None
 
     def save_to_file(self, filepath):
         if not filepath.endswith(".png"):
